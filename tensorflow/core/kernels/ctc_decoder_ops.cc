@@ -251,6 +251,14 @@ class CTCBeamSearchDecoderOp : public OpKernel {
     int top_paths;
     OP_REQUIRES_OK(ctx, ctx->GetAttr("top_paths", &top_paths));
     decode_helper_.SetTopPaths(top_paths);
+    std::string kenlm_file_path;
+    OP_REQUIRES_OK(ctx, ctx->GetAttr("kenlm_file_path", &kenlm_file_path));
+    const char *c_kenlm_file_path = kenlm_file_path.c_str();
+    beam_scorer_ = new ctc::KenLMBeamScorer(c_kenlm_file_path);
+  }
+
+  virtual ~CTCBeamSearchDecoderOp() {
+    delete beam_scorer_;
   }
 
   void Compute(OpKernelContext* ctx) override {
@@ -287,8 +295,9 @@ class CTCBeamSearchDecoderOp : public OpKernel {
                                 batch_size, num_classes);
     }
 
-    ctc::CTCBeamSearchDecoder<> beam_search(num_classes, beam_width_,
-                                            &beam_scorer_, 1 /* batch_size */,
+    ctc::CTCBeamSearchDecoder<ctc::ctc_beam_search::KenLMBeamState>
+                              beam_search(num_classes, beam_width_,
+                                            beam_scorer_, 1 /* batch_size */,
                                             merge_repeated_);
     Tensor input_chip(DT_FLOAT, TensorShape({num_classes}));
     auto input_chip_t = input_chip.flat<float>();
@@ -322,7 +331,7 @@ class CTCBeamSearchDecoderOp : public OpKernel {
 
  private:
   CTCDecodeHelper decode_helper_;
-  ctc::CTCBeamSearchDecoder<>::DefaultBeamScorer beam_scorer_;
+  ctc::KenLMBeamScorer *beam_scorer_;
   bool merge_repeated_;
   int beam_width_;
   TF_DISALLOW_COPY_AND_ASSIGN(CTCBeamSearchDecoderOp);

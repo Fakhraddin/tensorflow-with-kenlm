@@ -53,12 +53,14 @@ cc_library(
         "ctc_beam_search.h",
         "ctc_decoder.h",
     ],
+    copts = ['-fexceptions'],
     deps = [
         ":ctc_loss_util_lib",
         "//tensorflow/core:gpu_runtime",
         "//tensorflow/core:lib",
         "//tensorflow/core:lib_internal",
         "//third_party/eigen3",
+        "@kenlm_archive//:kenlm",
     ],
 )
 
@@ -66,7 +68,9 @@ tf_cc_tests(
     size = "small",
     srcs = [
         "ctc_beam_search_test.cc",
+        "ctc_beam_search_kenlm_test.cc",
     ],
+    copts = ['-fexceptions'],
     deps = [
         ":ctc_beam_search_lib",
         "//tensorflow/core:lib",

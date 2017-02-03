@@ -334,12 +334,12 @@ def tf_gen_op_wrapper_py(name, out=None, hidden=None, visibility=None, deps=[],
 # TODO(opensource): we need to enable this to work around the hidden symbol
 # __cudaRegisterFatBinary error. Need more investigations.
 def tf_cc_test(name, srcs, deps, linkstatic=0, tags=[], data=[], size="medium",
-               suffix="", args=None, linkopts=[]):
+               suffix="", args=None, linkopts=[], copts=[]):
   native.cc_test(name="%s%s" % (name, suffix),
                  srcs=srcs,
                  size=size,
                  args=args,
-                 copts=tf_copts(),
+                 copts=tf_copts() + copts,
                  data=data,
                  deps=deps,
                  linkopts=["-lpthread", "-lm"] + linkopts,
@@ -377,12 +377,13 @@ def tf_cuda_cc_test(name, srcs, deps, tags=[], data=[], size="medium",
 
 # Create a cc_test for each of the tensorflow tests listed in "tests"
 def tf_cc_tests(srcs, deps, linkstatic=0, tags=[], size="medium",
-                args=None, linkopts=[]):
+                args=None, linkopts=[], copts=[]):
   for src in srcs:
     tf_cc_test(
         name=src_to_test_name(src),
         srcs=[src],
         deps=deps,
+        copts=copts,
         linkstatic=linkstatic,
         tags=tags,
         size=size,
@@ -488,7 +489,7 @@ def tf_cuda_library(deps=None, cuda_deps=None, copts=None, **kwargs):
       **kwargs)
 
 def tf_kernel_library(name, prefix=None, srcs=None, gpu_srcs=None, hdrs=None,
-                      deps=None, alwayslink=1, **kwargs):
+                      deps=None, alwayslink=1, copts=[], **kwargs):
   """A rule to build a TensorFlow OpKernel.
 
   May either specify srcs/hdrs or prefix.  Similar to tf_cuda_library,
@@ -542,7 +543,7 @@ def tf_kernel_library(name, prefix=None, srcs=None, gpu_srcs=None, hdrs=None,
       name = name,
       srcs = srcs,
       hdrs = hdrs,
-      copts = tf_copts(),
+      copts = tf_copts() + copts,
       cuda_deps = cuda_deps,
       linkstatic = 1,   # Needed since alwayslink is broken in bazel b/27630669
       alwayslink = alwayslink,

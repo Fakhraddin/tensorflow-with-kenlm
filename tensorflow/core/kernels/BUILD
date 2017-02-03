@@ -880,6 +880,7 @@ tf_kernel_library(
 tf_kernel_library(
     name = "ctc_ops",
     prefix = "ctc",
+    copts = ['-fexceptions'],
     deps = [
         ":bounds_check",
         ":ops_util",

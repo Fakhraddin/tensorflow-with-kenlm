@@ -136,6 +136,7 @@ log_probability: Matrix, size `(batch_size x 1)`, containing sequence
 REGISTER_OP("CTCBeamSearchDecoder")
     .Input("inputs: float")
     .Input("sequence_length: int32")
+    .Attr("kenlm_file_path: string")
     .Attr("beam_width: int >= 1")
     .Attr("top_paths: int >= 1")
     .Attr("merge_repeated: bool = true")
@@ -184,6 +185,7 @@ returned if merge_repeated = False.
 
 inputs: 3-D, shape: `(max_time x batch_size x num_classes)`, the logits.
 sequence_length: A vector containing sequence lengths, size `(batch)`.
+kenlm_file_path: String. Path to KenML binary language model file.
 beam_width: A scalar >= 0 (beam search beam width).
 top_paths: A scalar >= 0, <= beam_width (controls output size).
 merge_repeated: If true, merge repeated classes in output.

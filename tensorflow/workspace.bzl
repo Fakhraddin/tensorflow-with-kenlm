@@ -21,6 +21,16 @@ def tf_workspace(path_prefix = "", tf_repo_name = ""):
   eigen_sha256 = "c66f4693a0fd1f5c2cf009e01eb49671ce9cbb56874c3d07d3b8928ffc132cec"
 
   native.new_http_archive(
+      name = "kenlm_archive",
+      urls = [
+          "http://kheafield.com/code/kenlm.tar.gz",
+      ],
+      sha256 = "99887000e0babf91dc8e4ad3efee5e6c64954ed3e89a1098e6f46a0eaf470fe7",
+      strip_prefix = "kenlm",
+      build_file = str(Label("//third_party:kenlm.BUILD")),
+  )
+
+  native.new_http_archive(
     name = "eigen_archive",
     url = "http://bitbucket.org/eigen/eigen/get/" + eigen_version + ".tar.gz",
     sha256 = eigen_sha256,

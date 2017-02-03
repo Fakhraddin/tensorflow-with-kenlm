@@ -24,6 +24,7 @@ limitations under the License.
 #include "tensorflow/core/platform/macros.h"
 #include "tensorflow/core/platform/types.h"
 #include "tensorflow/core/util/ctc/ctc_loss_util.h"
+#include "lm/model.hh"
 
 namespace tensorflow {
 namespace ctc {
@@ -37,6 +38,13 @@ namespace ctc {
 namespace ctc_beam_search {
 
 struct EmptyBeamState {};
+
+struct KenLMBeamState {
+  float complete_words_score;
+  float incomplete_word_score;
+  std::string incomplete_word;
+  lm::ngram::ProbingModel::State model_state;
+};
 
 struct BeamProbability {
   BeamProbability() : total(kLogZero), blank(kLogZero), label(kLogZero) {}

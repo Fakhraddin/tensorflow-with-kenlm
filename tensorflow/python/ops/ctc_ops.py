@@ -208,8 +208,8 @@ def ctc_greedy_decoder(inputs, sequence_length, merge_repeated=True):
           log_probabilities)
 
 
-def ctc_beam_search_decoder(inputs, sequence_length, beam_width=100,
-                            top_paths=1, merge_repeated=True):
+def ctc_beam_search_decoder(inputs, sequence_length, kenlm_file_path,
+                            beam_width=100, top_paths=1, merge_repeated=True):
   """Performs beam search decoding on the logits given in input.
 
   **Note** The `ctc_greedy_decoder` is a special case of the
@@ -229,6 +229,7 @@ def ctc_beam_search_decoder(inputs, sequence_length, beam_width=100,
       `[max_time x batch_size x num_classes]`.  The logits.
     sequence_length: 1-D `int32` vector containing sequence lengths,
       having size `[batch_size]`.
+    kenlm_file_path: String. Path to KenML binary language model file.
     beam_width: An int scalar >= 0 (beam search beam width).
     top_paths: An int scalar >= 0, <= beam_width (controls output size).
     merge_repeated: Boolean.  Default: True.
@@ -249,7 +250,7 @@ def ctc_beam_search_decoder(inputs, sequence_length, beam_width=100,
 
   decoded_ixs, decoded_vals, decoded_shapes, log_probabilities = (
       gen_ctc_ops._ctc_beam_search_decoder(
-          inputs, sequence_length, beam_width=beam_width, top_paths=top_paths,
+          inputs, sequence_length, kenlm_file_path, beam_width=beam_width, top_paths=top_paths,
           merge_repeated=merge_repeated))
 
   return (
