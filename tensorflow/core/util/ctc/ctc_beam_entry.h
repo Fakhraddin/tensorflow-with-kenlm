@@ -24,6 +24,7 @@ limitations under the License.
 #include "tensorflow/core/platform/macros.h"
 #include "tensorflow/core/platform/types.h"
 #include "tensorflow/core/util/ctc/ctc_loss_util.h"
+#include "tensorflow/core/util/ctc/ctc_trie_node.h"
 #include "lm/model.hh"
 
 namespace tensorflow {
@@ -38,6 +39,11 @@ namespace ctc {
 namespace ctc_beam_search {
 
 struct EmptyBeamState {};
+
+struct PrefixBeamState {
+  float prob;
+  TrieNode<27> *node;
+};
 
 struct KenLMBeamState {
   float complete_words_score;

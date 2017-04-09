@@ -377,12 +377,13 @@ def tf_cuda_cc_test(name, srcs, deps, tags=[], data=[], size="medium",
 
 # Create a cc_test for each of the tensorflow tests listed in "tests"
 def tf_cc_tests(srcs, deps, linkstatic=0, tags=[], size="medium",
-                args=None, linkopts=[], copts=[]):
+                args=None, linkopts=[], copts=[], data=[]):
   for src in srcs:
     tf_cc_test(
         name=src_to_test_name(src),
         srcs=[src],
         deps=deps,
+        data=data,
         copts=copts,
         linkstatic=linkstatic,
         tags=tags,

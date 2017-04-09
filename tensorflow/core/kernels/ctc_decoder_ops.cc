@@ -245,6 +245,9 @@ REGISTER_KERNEL_BUILDER(Name("CTCGreedyDecoder").Device(DEVICE_CPU),
 // CTC beam search
 class CTCBeamSearchDecoderOp : public OpKernel {
  public:
+  typedef ctc::ctc_beam_search::KenLMBeamState BeamState;
+  typedef ctc::KenLMBeamScorer BeamScorer;
+
   explicit CTCBeamSearchDecoderOp(OpKernelConstruction* ctx) : OpKernel(ctx) {
     OP_REQUIRES_OK(ctx, ctx->GetAttr("merge_repeated", &merge_repeated_));
     OP_REQUIRES_OK(ctx, ctx->GetAttr("beam_width", &beam_width_));
@@ -254,7 +257,7 @@ class CTCBeamSearchDecoderOp : public OpKernel {
     std::string kenlm_file_path;
     OP_REQUIRES_OK(ctx, ctx->GetAttr("kenlm_file_path", &kenlm_file_path));
     const char *c_kenlm_file_path = kenlm_file_path.c_str();
-    beam_scorer_ = new ctc::KenLMBeamScorer(c_kenlm_file_path);
+    beam_scorer_ = new BeamScorer(c_kenlm_file_path);
   }
 
   virtual ~CTCBeamSearchDecoderOp() {
@@ -295,7 +298,7 @@ class CTCBeamSearchDecoderOp : public OpKernel {
                                 batch_size, num_classes);
     }
 
-    ctc::CTCBeamSearchDecoder<ctc::ctc_beam_search::KenLMBeamState>
+    ctc::CTCBeamSearchDecoder<BeamState>
                               beam_search(num_classes, beam_width_,
                                             beam_scorer_, 1 /* batch_size */,
                                             merge_repeated_);
@@ -331,7 +334,7 @@ class CTCBeamSearchDecoderOp : public OpKernel {
 
  private:
   CTCDecodeHelper decode_helper_;
-  ctc::KenLMBeamScorer *beam_scorer_;
+  BeamScorer *beam_scorer_;
   bool merge_repeated_;
   int beam_width_;
   TF_DISALLOW_COPY_AND_ASSIGN(CTCBeamSearchDecoderOp);

@@ -13,6 +13,7 @@ filegroup(
     srcs = [
         "ctc_beam_entry.h",
         "ctc_beam_scorer.h",
+        "ctc_trie_node.h",
         "ctc_beam_search.h",
         "ctc_decoder.h",
         "ctc_loss_util.h",
@@ -44,12 +45,14 @@ cc_library(
     srcs = [
         "ctc_beam_entry.h",
         "ctc_beam_scorer.h",
+        "ctc_trie_node.h",
         "ctc_beam_search.h",
         "ctc_decoder.h",
     ],
     hdrs = [
         "ctc_beam_entry.h",
         "ctc_beam_scorer.h",
+        "ctc_trie_node.h",
         "ctc_beam_search.h",
         "ctc_decoder.h",
     ],
@@ -76,6 +79,9 @@ tf_cc_tests(
         "//tensorflow/core:lib",
         "//tensorflow/core:test",
         "//tensorflow/core:test_main",
+    ],
+    data = [
+        "testdata/testing-kenlm.binary",
     ],
 )
 
