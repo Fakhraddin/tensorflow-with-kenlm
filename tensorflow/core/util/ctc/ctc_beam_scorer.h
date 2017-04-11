@@ -114,8 +114,8 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
 
   // State initialization.
   void InitializeState(KenLMBeamState* root) const {
-    root->complete_words_score = 0.0f;
-    root->incomplete_word_score = 0.0f;
+    root->language_model_score = 0.0f;
+    root->delta_language_model_score = 0.0f;
     root->incomplete_word.clear();
     root->model_state = model->BeginSentenceState();
   }
@@ -139,11 +139,10 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
     float prob = ScoreIncompleteWord(from_state.model_state,
                           to_state->incomplete_word,
                           out);
-    to_state->incomplete_word_score = prob;
+    to_state->language_model_score = prob;
+    to_state->delta_language_model_score = prob - from_state.language_model_score;
 
     if (translator.IsSpaceLabel(to_label)) {
-      to_state->complete_words_score += to_state->incomplete_word_score;
-      to_state->incomplete_word_score = 0.0f;
       to_state->incomplete_word.clear();
       to_state->model_state = out;
     }
@@ -155,18 +154,16 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
     Model::State out;
     lm::FullScoreReturn ret;
     if (state->incomplete_word.size() > 0) {
-      float prob = ScoreIncompleteWord(state->model_state,
-                                        state->incomplete_word,
-                                        out);
-      state->complete_words_score += prob;
-      state->incomplete_word_score = 0.0f;
+      ScoreIncompleteWord(state->model_state, state->incomplete_word, out);
       state->incomplete_word.clear();
       state->model_state = out;
     }
     ret = model->FullScore(state->model_state,
                             model->GetVocabulary().EndSentence(),
                             out);
-    state->complete_words_score += ret.prob;
+    float previous_score = state->language_model_score;
+    state->language_model_score = ret.prob;
+    state->delta_language_model_score = ret.prob - previous_score;
   }
   // GetStateExpansionScore should be an inexpensive method to retrieve the
   // (cached) expansion score computed within ExpandState. The score is
@@ -177,8 +174,7 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
   // there's no state expansion logic, the expansion score is zero.
   float GetStateExpansionScore(const KenLMBeamState& state,
                                        float previous_score) const {
-    return state.complete_words_score +
-            state.incomplete_word_score;
+    return state.delta_language_model_score + previous_score;
   }
   // GetStateEndExpansionScore should be an inexpensive method to retrieve the
   // (cached) expansion score computed within ExpandStateEnd. The score is
@@ -186,7 +182,7 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
   //
   // The score returned should be a log-probability.
   float GetStateEndExpansionScore(const KenLMBeamState& state) const {
-    return state.complete_words_score;
+    return state.delta_language_model_score;
   }
 
  private:
@@ -204,8 +200,8 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
   }
 
   void CopyState(const KenLMBeamState& from, KenLMBeamState* to) const {
-    to->complete_words_score = from.complete_words_score;
-    to->incomplete_word_score = from.incomplete_word_score;
+    to->language_model_score = from.language_model_score;
+    to->delta_language_model_score = from.delta_language_model_score;
     to->incomplete_word = from.incomplete_word;
     to->model_state = from.model_state;
   }
