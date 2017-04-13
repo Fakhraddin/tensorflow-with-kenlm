@@ -90,6 +90,10 @@ public:
     }
     return prefixCount;
   }
+
+  int GetFrequency() {
+    return prefixCount;
+  }
   
   TrieNode *GetChildAt(int vocabIndex) {
     return children[vocabIndex];

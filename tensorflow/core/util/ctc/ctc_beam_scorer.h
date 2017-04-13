@@ -104,19 +104,27 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
 
   virtual ~KenLMBeamScorer() {
     delete model;
+    delete trieRoot;
   }
   KenLMBeamScorer(const char *kenlm_file_path) {
     lm::ngram::Config config;
     config.load_method = util::POPULATE_OR_READ;
-
     model = new Model(kenlm_file_path, config);
+
+    std::string trie_path = std::string(kenlm_file_path) + ".trie";
+    std::ifstream in;
+    in.open(trie_path.c_str(), std::ios::in);
+    in >> trieRoot;
+    in.close();
   }
 
   // State initialization.
   void InitializeState(KenLMBeamState* root) const {
     root->language_model_score = 0.0f;
-    root->delta_language_model_score = 0.0f;
+    root->score = 0.0f;
+    root->delta_score = 0.0f;
     root->incomplete_word.clear();
+    root->incomplete_word_trie_node = trieRoot;
     root->model_state = model->BeginSentenceState();
   }
   // ExpandState is called when expanding a beam to one of its children.
@@ -129,21 +137,43 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
     CopyState(from_state, to_state);
 
     if (from_label == to_label || translator.IsBlankLabel(to_label)) {
+      // TODO set delta score to 0
       return;
     }
 
     if (!translator.IsSpaceLabel(to_label)) {
       to_state->incomplete_word += translator.GetCharacterFromLabel(to_label);
-    }
+      TrieNode<27> *trie_node = from_state.incomplete_word_trie_node;
 
-    float prob = ScoreIncompleteWord(from_state.model_state,
-                          to_state->incomplete_word,
-                          out);
-    to_state->language_model_score = prob;
-    to_state->delta_language_model_score = prob - from_state.language_model_score;
+      float prefix_prob = -10.0f;
+      // If prefix does exist
+      if (trie_node != nullptr) {
+        trie_node = trie_node->GetChildAt(to_label);
+        to_state->incomplete_word_trie_node = trie_node;
 
-    if (translator.IsSpaceLabel(to_label)) {
+        if (trie_node != nullptr) {
+          prefix_prob = static_cast<float>(trie_node->GetFrequency()) /
+                  static_cast<float>(trieRoot->GetFrequency());
+          // TODO store and retrieve the least likely extension
+          // Convert to log probability
+          prefix_prob = std::log10(prefix_prob);
+        }
+      }
+      // TODO try two options
+      // 1) unigram score added up to language model scare
+      // 2) langugage model score of (preceding_words + unigram_word)
+      to_state->score = prefix_prob + to_state->language_model_score;
+      to_state->delta_score = to_state->score - from_state.score;
+
+    } else {
+      float probability = ScoreIncompleteWord(from_state.model_state,
+                            to_state->incomplete_word,
+                            out);
+      to_state->language_model_score = probability;
+      to_state->score = probability;
+      to_state->delta_score = probability - from_state.score;
       to_state->incomplete_word.clear();
+      to_state->incomplete_word_trie_node = trieRoot;
       to_state->model_state = out;
     }
   }
@@ -152,18 +182,21 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
   // and retrieving the TopN requested candidates. Called at most once per beam.
   void ExpandStateEnd(KenLMBeamState* state) const {
     Model::State out;
-    lm::FullScoreReturn ret;
+    lm::FullScoreReturn full_score_return;
     if (state->incomplete_word.size() > 0) {
       ScoreIncompleteWord(state->model_state, state->incomplete_word, out);
+      // TODO Refactor into speperate method
       state->incomplete_word.clear();
+      state->incomplete_word_trie_node = trieRoot;
       state->model_state = out;
     }
-    ret = model->FullScore(state->model_state,
+    full_score_return = model->FullScore(state->model_state,
                             model->GetVocabulary().EndSentence(),
                             out);
-    float previous_score = state->language_model_score;
-    state->language_model_score = ret.prob;
-    state->delta_language_model_score = ret.prob - previous_score;
+    float previous_score = state->score;
+    state->language_model_score = full_score_return.prob;
+    state->score = full_score_return.prob;
+    state->delta_score = full_score_return.prob - previous_score;
   }
   // GetStateExpansionScore should be an inexpensive method to retrieve the
   // (cached) expansion score computed within ExpandState. The score is
@@ -174,7 +207,7 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
   // there's no state expansion logic, the expansion score is zero.
   float GetStateExpansionScore(const KenLMBeamState& state,
                                        float previous_score) const {
-    return state.delta_language_model_score + previous_score;
+    return state.delta_score + previous_score;
   }
   // GetStateEndExpansionScore should be an inexpensive method to retrieve the
   // (cached) expansion score computed within ExpandStateEnd. The score is
@@ -182,27 +215,30 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
   //
   // The score returned should be a log-probability.
   float GetStateEndExpansionScore(const KenLMBeamState& state) const {
-    return state.delta_language_model_score;
+    return state.delta_score;
   }
 
  private:
   LabelToCharacterTranslator translator;
+  TrieNode<27> *trieRoot;
   Model *model;
 
   float ScoreIncompleteWord(const Model::State& model_state,
                             const std::string& word,
                             Model::State& out) const {
-    lm::FullScoreReturn ret;
+    lm::FullScoreReturn full_score_return;
     lm::WordIndex vocab;
     vocab = model->GetVocabulary().Index(word);
-    ret = model->FullScore(model_state, vocab, out);
-    return ret.prob;
+    full_score_return = model->FullScore(model_state, vocab, out);
+    return full_score_return.prob;
   }
 
   void CopyState(const KenLMBeamState& from, KenLMBeamState* to) const {
     to->language_model_score = from.language_model_score;
-    to->delta_language_model_score = from.delta_language_model_score;
+    to->score = from.score;
+    to->delta_score = from.delta_score;
     to->incomplete_word = from.incomplete_word;
+    to->incomplete_word_trie_node = from.incomplete_word_trie_node;
     to->model_state = from.model_state;
   }
 

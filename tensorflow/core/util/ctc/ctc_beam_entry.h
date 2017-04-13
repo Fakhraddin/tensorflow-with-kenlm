@@ -47,8 +47,10 @@ struct PrefixBeamState {
 
 struct KenLMBeamState {
   float language_model_score;
-  float delta_language_model_score;
+  float score;
+  float delta_score;
   std::string incomplete_word;
+  TrieNode<27> *incomplete_word_trie_node;
   lm::ngram::ProbingModel::State model_state;
 };
 
