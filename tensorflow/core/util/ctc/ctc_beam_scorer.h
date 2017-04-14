@@ -132,12 +132,10 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
   // expansion is done.
   void ExpandState(const KenLMBeamState& from_state, int from_label,
                            KenLMBeamState* to_state, int to_label) const {
-    Model::State out;
-
     CopyState(from_state, to_state);
 
     if (from_label == to_label || translator.IsBlankLabel(to_label)) {
-      // TODO set delta score to 0
+      to_state->delta_score = 0.0f;
       return;
     }
 
@@ -168,13 +166,9 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
     } else {
       float probability = ScoreIncompleteWord(from_state.model_state,
                             to_state->incomplete_word,
-                            out);
-      to_state->language_model_score = probability;
-      to_state->score = probability;
-      to_state->delta_score = probability - from_state.score;
-      to_state->incomplete_word.clear();
-      to_state->incomplete_word_trie_node = trieRoot;
-      to_state->model_state = out;
+                            to_state->model_state);
+      UpdateWithLMScore(to_state, probability);
+      ResetIncompleteWord();
     }
   }
   // ExpandStateEnd is called after decoding has finished. Its purpose is to
@@ -185,18 +179,13 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
     lm::FullScoreReturn full_score_return;
     if (state->incomplete_word.size() > 0) {
       ScoreIncompleteWord(state->model_state, state->incomplete_word, out);
-      // TODO Refactor into speperate method
-      state->incomplete_word.clear();
-      state->incomplete_word_trie_node = trieRoot;
+      ResetIncompleteWord(state);
       state->model_state = out;
     }
     full_score_return = model->FullScore(state->model_state,
                             model->GetVocabulary().EndSentence(),
                             out);
-    float previous_score = state->score;
-    state->language_model_score = full_score_return.prob;
-    state->score = full_score_return.prob;
-    state->delta_score = full_score_return.prob - previous_score;
+    UpdateWithLMScore(state, full_score_return.prob);
   }
   // GetStateExpansionScore should be an inexpensive method to retrieve the
   // (cached) expansion score computed within ExpandState. The score is
@@ -222,6 +211,18 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
   LabelToCharacterTranslator translator;
   TrieNode<27> *trieRoot;
   Model *model;
+
+  void UpdateWithLMScore(KenLMBeamState *state, float lm_score) {
+    float previous_score = state->score;
+    state->language_model_score = lm_score;
+    state->score = lm_score;
+    state->delta_score = lm_score - previous_score;
+  }
+
+  void ResetIncompleteWord(KenLMBeamState *state) {
+    state->incomplete_word.clear();
+    state->incomplete_word_trie_node = trieRoot;
+  }
 
   float ScoreIncompleteWord(const Model::State& model_state,
                             const std::string& word,
