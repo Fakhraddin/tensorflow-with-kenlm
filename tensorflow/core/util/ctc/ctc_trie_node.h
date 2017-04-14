@@ -26,65 +26,65 @@ limitations under the License.
 namespace tensorflow {
 namespace ctc {
 
-template <int VOCAB_SIZE>
 class TrieNode {
 public:
-  TrieNode() : prefixCount(0),
-                min_score_word(0),
-                min_unigram_score(std::numeric_limits<float>::max()),
-                children{nullptr} {}
+  TrieNode(int vocab_size) : vocab_size(vocab_size),
+                        prefixCount(0),
+                        min_score_word(0),
+                        min_unigram_score(std::numeric_limits<float>::max()) {
+      children = new TrieNode*[vocab_size]();
+    }
 
   ~TrieNode() {
-    for (int i = 0; i < VOCAB_SIZE; i++) {
+    for (int i = 0; i < vocab_size; i++) {
       delete children[i];
     }
+    delete children;
   }
 
-  friend std::ostream& operator<<(std::ostream& os, const TrieNode* obj) {
-    if (obj == nullptr) {
-      os << -1 << std::endl;
-      return os;
+  void WriteToStream(std::ostream& os) {
+    WriteNode(os);
+    for (int i = 0; i < vocab_size; i++) {
+      if (children[i] == nullptr) {
+        os << -1 << std::endl;
+      } else {
+        // Recursive call
+        children[i]->WriteToStream(os);
+      }
     }
-    obj->WriteNode(os);
-    for (int i = 0; i < VOCAB_SIZE; i++) {
-      // Recursive call
-      os << obj->children[i];
-    }
-    return os;
   }
 
-  friend std::istream& operator>>(std::istream& is, TrieNode* &obj) {
+  static void ReadFromStream(std::istream& is, TrieNode* &obj, int vocab_size) {
     int prefixCount;
     is >> prefixCount;
 
     if (prefixCount == -1) {
       // This is an undefined child
       obj = nullptr;
-      return is;
+      return;
     }
 
-    obj = new TrieNode;
+    obj = new TrieNode(vocab_size);
     obj->ReadNode(is, prefixCount);
-    for (int i = 0; i < VOCAB_SIZE; i++) {
+    for (int i = 0; i < vocab_size; i++) {
       // Recursive call
-      is >> obj->children[i];
+      ReadFromStream(is, obj->children[i], vocab_size);
     }
-    return is;
   }
 
-  void Insert(const char* word, std::function<char (char)> translator,
+  void Insert(const wchar_t* word, std::function<int (wchar_t)> translator,
               lm::WordIndex lm_word, float unigram_score) {
-    char wordCharacter = *word;
+    wchar_t wordCharacter = *word;
     prefixCount++;
     if (unigram_score < min_unigram_score) {
       min_unigram_score = unigram_score;
       min_score_word = lm_word;
     }
     if (wordCharacter != '\0') {
-      char vocabIndex = translator(wordCharacter);
+      int vocabIndex = translator(wordCharacter);
       TrieNode *child = children[vocabIndex];
       if (child == nullptr)
-        child = children[vocabIndex] = new TrieNode();
+        child = children[vocabIndex] = new TrieNode(vocab_size);
       child->Insert(word + 1, translator, lm_word, unigram_score);
     }
   }
@@ -106,10 +106,11 @@ public:
   }
 
 private:
+  int vocab_size;
   int prefixCount;
   lm::WordIndex min_score_word;
   float min_unigram_score;
-  TrieNode *children[VOCAB_SIZE];
+  TrieNode **children;
 
   void WriteNode(std::ostream& os) const {
     os << prefixCount << std::endl;

@@ -25,7 +25,9 @@ limitations under the License.
 #define TENSORFLOW_CORE_UTIL_CTC_CTC_BEAM_SCORER_H_
 
 #include "tensorflow/core/util/ctc/ctc_beam_entry.h"
+#include "tensorflow/core/util/ctc/ctc_vocabulary.h"
 #include "lm/model.hh"
+#include "utf8.h"
 
 #include <iostream>
 #include <fstream>
@@ -75,31 +77,6 @@ class BaseBeamScorer {
   }
 };
 
-// TODO how do we generalize this to german corpora?
-// give it as a parameter from the python env?
-class LabelToCharacterTranslator {
- public:
-  LabelToCharacterTranslator() {}
-
-  bool inline IsBlankLabel(int label) const {
-    return label == 28;
-  }
-
-  bool inline IsSpaceLabel(int label) const {
-    return label == 27;
-  }
-
-  char GetCharacterFromLabel(int label) const {
-    if (label == 26) {
-      return '\'';
-    }
-    if (label == 27) {
-      return ' ';
-    }
-    return label + 'a';
-  }
-};
-
 class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
  public:
   typedef lm::ngram::ProbingModel Model;
@@ -107,16 +84,22 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
   virtual ~KenLMBeamScorer() {
     delete model;
     delete trieRoot;
+    delete vocabulary;
   }
   KenLMBeamScorer(const char *kenlm_file_path) {
     lm::ngram::Config config;
     config.load_method = util::POPULATE_OR_READ;
     model = new Model(kenlm_file_path, config);
 
-    std::string trie_path = std::string(kenlm_file_path) + ".trie";
+    const std::string trie_path = std::string(kenlm_file_path) + ".trie";
+    const std::string vocabulary_path = std::string(kenlm_file_path)
+                                          + ".vocabulary";
+
+    vocabulary = new Vocabulary(vocabulary_path.c_str());
+
     std::ifstream in;
     in.open(trie_path.c_str(), std::ios::in);
-    in >> trieRoot;
+    TrieNode::ReadFromStream(in, trieRoot, vocabulary->GetSize());
     in.close();
   }
 
@@ -136,14 +119,14 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
                            KenLMBeamState* to_state, int to_label) const {
     CopyState(from_state, to_state);
 
-    if (from_label == to_label || translator.IsBlankLabel(to_label)) {
+    if (from_label == to_label || vocabulary->IsBlankLabel(to_label)) {
       to_state->delta_score = 0.0f;
       return;
     }
 
-    if (!translator.IsSpaceLabel(to_label)) {
-      to_state->incomplete_word += translator.GetCharacterFromLabel(to_label);
-      TrieNode<27> *trie_node = from_state.incomplete_word_trie_node;
+    if (!vocabulary->IsSpaceLabel(to_label)) {
+      to_state->incomplete_word += vocabulary->GetCharacterFromLabel(to_label);
+      TrieNode *trie_node = from_state.incomplete_word_trie_node;
 
       // TODO replace with OOV unigram prob?
       // If we have no valid prefix we assume a very low log probability
@@ -208,8 +191,8 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
   }
 
  private:
-  LabelToCharacterTranslator translator;
-  TrieNode<27> *trieRoot;
+  Vocabulary *vocabulary;
+  TrieNode *trieRoot;
   Model *model;
 
   void UpdateWithLMScore(KenLMBeamState *state, float lm_score) const {
@@ -225,11 +208,13 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
   }
 
   float ScoreIncompleteWord(const Model::State& model_state,
-                            const std::string& word,
+                            const std::wstring& word,
                             Model::State& out) const {
     lm::FullScoreReturn full_score_return;
     lm::WordIndex vocab;
-    vocab = model->GetVocabulary().Index(word);
+    std::string encoded_word;
+    utf8::utf16to8(word.begin(), word.end(), std::back_inserter(encoded_word));
+    vocab = model->GetVocabulary().Index(encoded_word);
     full_score_return = model->FullScore(model_state, vocab, out);
     return full_score_return.prob;
   }
@@ -243,87 +228,6 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
     to->model_state = from.model_state;
   }
 
-};
-
-class PrefixScorer : public BaseBeamScorer<PrefixBeamState> {
- public:
-
-  virtual ~PrefixScorer() {
-    delete trieRoot;
-  }
-
-  PrefixScorer(const char *trie_path) {
-    std::ifstream in;
-    in.open(trie_path, std::ios::in);
-    in >> trieRoot;
-    in.close();
-  }
-
-  // State initialization.
-  void InitializeState(PrefixBeamState* root) const {
-    root->prob = 0;
-    root->node = trieRoot;
-  }
-  // ExpandState is called when expanding a beam to one of its children.
-  // Called at most once per child beam. In the simplest case, no state
-  // expansion is done.
-  void ExpandState(const PrefixBeamState& from_state, int from_label,
-                           PrefixBeamState* to_state, int to_label) const {
-    CopyState(from_state, to_state);
-
-    if (from_label == to_label || translator.IsBlankLabel(to_label)) {
-      return;
-    }
-
-    if (translator.IsSpaceLabel(to_label)) {
-      to_state->node = trieRoot;
-      return;
-    }
-
-    if (to_state->node == nullptr) {
-      // We already figured out that no prefix exists
-      // Penalty already applied (only once per word)
-      return;
-    }
-
-    to_state->node = to_state->node->GetChildAt(to_label);
-    if (to_state->node == nullptr) {
-      // Add penalty for non existing prefix
-      to_state->prob -= 1.0f;
-    }
-  }
-  // ExpandStateEnd is called after decoding has finished. Its purpose is to
-  // allow a final scoring of the beam in its current state, before resorting
-  // and retrieving the TopN requested candidates. Called at most once per beam.
-  void ExpandStateEnd(PrefixBeamState* state) const {}
-  // GetStateExpansionScore should be an inexpensive method to retrieve the
-  // (cached) expansion score computed within ExpandState. The score is
-  // multiplied (log-addition) with the input score at the current step from
-  // the network.
-  //
-  // The score returned should be a log-probability. In the simplest case, as
-  // there's no state expansion logic, the expansion score is zero.
-  float GetStateExpansionScore(const PrefixBeamState& state,
-                                       float previous_score) const {
-    return state.prob;
-  }
-  // GetStateEndExpansionScore should be an inexpensive method to retrieve the
-  // (cached) expansion score computed within ExpandStateEnd. The score is
-  // multiplied (log-addition) with the final probability of the beam.
-  //
-  // The score returned should be a log-probability.
-  float GetStateEndExpansionScore(const PrefixBeamState& state) const {
-    return state.prob;
-  }
-
- private:
-  TrieNode<27> *trieRoot;
-  LabelToCharacterTranslator translator;
-
-  void CopyState(const PrefixBeamState& from, PrefixBeamState* to) const {
-    to->prob = from.prob;
-    to->node = from.node;
-  }
 };
 
 }  // namespace ctc

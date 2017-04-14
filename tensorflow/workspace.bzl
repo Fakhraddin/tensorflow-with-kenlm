@@ -21,6 +21,16 @@ def tf_workspace(path_prefix = "", tf_repo_name = ""):
   eigen_sha256 = "c66f4693a0fd1f5c2cf009e01eb49671ce9cbb56874c3d07d3b8928ffc132cec"
 
   native.new_http_archive(
+      name = "utfcpp_archive",
+      urls = [
+          "https://github.com/nemtrif/utfcpp/archive/v2.3.5.tar.gz",
+      ],
+      sha256 = "f3ffe0ef6c02f48ebafe42369cbd741e844143baad27c13baad1cd14b863983d",
+      strip_prefix = "utfcpp-2.3.5/source",
+      build_file = str(Label("//third_party:utfcpp.BUILD")),
+  )
+
+  native.new_http_archive(
       name = "kenlm_archive",
       urls = [
           "http://kheafield.com/code/kenlm.tar.gz",

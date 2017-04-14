@@ -14,21 +14,13 @@ limitations under the License.
 ==============================================================================*/
 
 #include "tensorflow/core/util/ctc/ctc_trie_node.h"
+#include "tensorflow/core/util/ctc/ctc_vocabulary.h"
 #include "lm/model.hh"
+#include "utf8.h"
 
 using namespace tensorflow::ctc;
 
 typedef lm::ngram::ProbingModel Model;
-
-// TODO this mapping needs to be provided somehow as well
-char CharToVocab(char c) {
-  if (c == '\'')
-    return 26;
-  char vocabIndex = c - 'a';
-  if (vocabIndex < 0 || vocabIndex > 25)
-    throw std::invalid_argument("Converted char that is not in the allowed vocabulary range");
-  return vocabIndex;
-}
 
 lm::WordIndex GetWordIndex(const Model& model, const std::string& word) {
   lm::WordIndex vocab;
@@ -45,24 +37,36 @@ float ScoreWord(const Model& model, lm::WordIndex vocab) {
 }
 
 int main(int argc, char *argv[]) {
-  if (argc != 2) {
-    std::cerr << "Usage " << argv[0] << " <kenlm_file_path>" << std::endl;
+  if (argc != 3) {
+    std::cerr << "Usage " << argv[0]
+              << " <kenlm_file_path>"
+              << " <vocabulary_path>"
+              << std::endl;
     return 1;
   }
+
   const char *kenlm_file_path = argv[1];
+  const char *vocabulary_path = argv[2];
+
   lm::ngram::Config config;
   config.load_method = util::POPULATE_OR_READ;
   Model model(kenlm_file_path, config);
 
-  TrieNode<27> root;
+  Vocabulary vocabulary(vocabulary_path);
+
+  TrieNode root(vocabulary.GetSize());
 
   std::string word;
   while (std::cin >> word) {
     lm::WordIndex vocab = GetWordIndex(model, word);
     float unigram_score = ScoreWord(model, vocab);
-    root.Insert(word.c_str(), CharToVocab, vocab, unigram_score);
+    std::wstring wide_word;
+    utf8::utf8to16(word.begin(), word.end(), std::back_inserter(wide_word));
+    root.Insert(wide_word.c_str(), [&vocabulary](wchar_t c) { 
+                  return vocabulary.GetLabelFromCharacter(c);
+                }, vocab, unigram_score);
   }
 
-  std::cout << &root;
+  root.WriteToStream(std::cout);
   return 0;
 }

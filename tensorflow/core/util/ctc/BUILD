@@ -13,6 +13,7 @@ filegroup(
     srcs = [
         "ctc_beam_entry.h",
         "ctc_beam_scorer.h",
+        "ctc_vocabulary.h",
         "ctc_trie_node.h",
         "ctc_beam_search.h",
         "ctc_decoder.h",
@@ -45,6 +46,7 @@ cc_library(
     srcs = [
         "ctc_beam_entry.h",
         "ctc_beam_scorer.h",
+        "ctc_vocabulary.h",
         "ctc_trie_node.h",
         "ctc_beam_search.h",
         "ctc_decoder.h",
@@ -52,11 +54,12 @@ cc_library(
     hdrs = [
         "ctc_beam_entry.h",
         "ctc_beam_scorer.h",
+        "ctc_vocabulary.h",
         "ctc_trie_node.h",
         "ctc_beam_search.h",
         "ctc_decoder.h",
     ],
-    copts = ['-fexceptions'],
+    copts = ['-fexceptions', '-std=c++11'],
     deps = [
         ":ctc_loss_util_lib",
         "//tensorflow/core:gpu_runtime",
@@ -64,6 +67,7 @@ cc_library(
         "//tensorflow/core:lib_internal",
         "//third_party/eigen3",
         "@kenlm_archive//:kenlm",
+        "@utfcpp_archive//:utfcpp",
     ],
 )
 
@@ -72,11 +76,13 @@ cc_binary(
     srcs = [
         "ctc_generate_trie.cc",
         "ctc_trie_node.h",
+        "ctc_vocabulary.h",
     ],
-    copts = ['-fexceptions'],
+    copts = ['-fexceptions', '-std=c++11', '-g'],
     linkopts = ['-lm'],
     deps = [
         "@kenlm_archive//:kenlm",
+        "@utfcpp_archive//:utfcpp",
     ],
 )
 
@@ -95,6 +101,8 @@ tf_cc_tests(
     ],
     data = [
         "testdata/testing-kenlm.binary",
+        "testdata/testing-kenlm.binary.vocabulary",
+        "testdata/testing-kenlm.binary.trie",
     ],
 )
 

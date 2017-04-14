@@ -16,12 +16,13 @@ limitations under the License.
 #include "tensorflow/core/platform/test.h"
 #include "tensorflow/core/util/ctc/ctc_beam_entry.h"
 #include "tensorflow/core/util/ctc/ctc_beam_scorer.h"
+#include "tensorflow/core/util/ctc/ctc_vocabulary.h"
 
 namespace {
 
 using tensorflow::ctc::KenLMBeamScorer;
-using tensorflow::ctc::LabelToCharacterTranslator;
 using tensorflow::ctc::ctc_beam_search::KenLMBeamState;
+using tensorflow::ctc::Vocabulary;
 
 const char test_sentence[] = "tomorrow it will rain";
 // Input path for 'tomorrow it will rain'
@@ -54,20 +55,37 @@ KenLMBeamScorer *createKenLMBeamScorer() {
   return new KenLMBeamScorer(kenlm_file_path);
 }
 
-TEST(LabelToCharacterTranslator, GetCharacterFromLabel) {
+TEST(KenLMBeamSearch, Vocabulary) {
 
-  LabelToCharacterTranslator translator;
+  const wchar_t char_list[] = L"abcdefghijklmnopqrstuvwxyz' ";
+  Vocabulary vocabulary(char_list, 28);
+
+  EXPECT_EQ(28, vocabulary.GetSize());
+  EXPECT_EQ('b', vocabulary.GetCharacterFromLabel(1));
+  EXPECT_EQ(4, vocabulary.GetLabelFromCharacter('e'));
+  EXPECT_TRUE(vocabulary.IsBlankLabel(28));
 
   int previous_label = 0;
   int test_sentence_offset = 0;
   for (int i = 0; i < test_labels_count; i++) {
     int label = test_labels[i];
-    if (label != previous_label && !translator.IsBlankLabel(label)) {
-      char returned_char = translator.GetCharacterFromLabel(label);
+    if (label != previous_label && !vocabulary.IsBlankLabel(label)) {
+      char returned_char = vocabulary.GetCharacterFromLabel(label);
       EXPECT_EQ(test_sentence[test_sentence_offset++], returned_char);
     }
     previous_label = label;
   }
+}
+
+TEST(KenLMBeamSearch, VocabularyFromFile) {
+
+  const char *vocabulary_path = "./tensorflow/core/util/ctc/testdata/testing-kenlm.binary.vocabulary";
+  Vocabulary vocabulary(vocabulary_path);
+
+  EXPECT_EQ(28, vocabulary.GetSize());
+  EXPECT_EQ('b', vocabulary.GetCharacterFromLabel(1));
+  EXPECT_EQ(4, vocabulary.GetLabelFromCharacter('e'));
+  EXPECT_TRUE(vocabulary.IsBlankLabel(28));
 }
 
 float ScoreBeam(KenLMBeamScorer *scorer, const int labels[], const int label_count) {
@@ -75,11 +93,15 @@ float ScoreBeam(KenLMBeamScorer *scorer, const int labels[], const int label_cou
   scorer->InitializeState(&states[0]);
 
   int from_label = -1;
+  float score = 0.0f;
   for (int i = 0; i < label_count; i++) {
     int to_label = labels[i];
+    KenLMBeamState &from_state = states[i % 2];
+    KenLMBeamState &to_state = states[(i + 1) % 2];
     
-    scorer->ExpandState(states[i % 2], from_label,
-                        &states[(i + 1) % 2], to_label);
+    scorer->ExpandState(from_state, from_label, &to_state, to_label);
+
+    score = scorer->GetStateExpansionScore(to_state, score);
     
     // Update from_label for next iteration
     from_label = to_label;
@@ -87,10 +109,9 @@ float ScoreBeam(KenLMBeamScorer *scorer, const int labels[], const int label_cou
 
   KenLMBeamState &endState = states[label_count % 2];
   scorer->ExpandStateEnd(&endState);
+  score += scorer->GetStateEndExpansionScore(endState);
 
-  float log_prob = scorer->GetStateEndExpansionScore(endState);
-
-  return log_prob;
+  return score;
 }
 
 TEST(KenLMBeamSearch, PenalizeIncompleteWord) {

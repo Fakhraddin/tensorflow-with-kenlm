@@ -40,17 +40,12 @@ namespace ctc_beam_search {
 
 struct EmptyBeamState {};
 
-struct PrefixBeamState {
-  float prob;
-  TrieNode<27> *node;
-};
-
 struct KenLMBeamState {
   float language_model_score;
   float score;
   float delta_score;
-  std::string incomplete_word;
-  TrieNode<27> *incomplete_word_trie_node;
+  std::wstring incomplete_word;
+  TrieNode *incomplete_word_trie_node;
   lm::ngram::ProbingModel::State model_state;
 };
 
