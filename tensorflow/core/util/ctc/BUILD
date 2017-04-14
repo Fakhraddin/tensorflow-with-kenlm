@@ -67,6 +67,18 @@ cc_library(
     ],
 )
 
+cc_binary(
+    name = "ctc_generate_trie",
+    srcs = [
+        "ctc_generate_trie.cc",
+        "ctc_trie_node.h",
+    ],
+    copts = ['-fexceptions'],
+    deps = [
+        "@kenlm_archive//:kenlm",
+    ],
+)
+
 tf_cc_tests(
     size = "small",
     srcs = [

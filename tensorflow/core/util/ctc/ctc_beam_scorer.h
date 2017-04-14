@@ -75,6 +75,8 @@ class BaseBeamScorer {
   }
 };
 
+// TODO how do we generalize this to german corpora?
+// give it as a parameter from the python env?
 class LabelToCharacterTranslator {
  public:
   LabelToCharacterTranslator() {}
@@ -143,24 +145,22 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
       to_state->incomplete_word += translator.GetCharacterFromLabel(to_label);
       TrieNode<27> *trie_node = from_state.incomplete_word_trie_node;
 
-      float prefix_prob = -10.0f;
+      // TODO replace with OOV unigram prob?
+      // If we have no valid prefix we assume a very low log probability
+      float min_unigram_score = -10.0f;
       // If prefix does exist
       if (trie_node != nullptr) {
         trie_node = trie_node->GetChildAt(to_label);
         to_state->incomplete_word_trie_node = trie_node;
 
         if (trie_node != nullptr) {
-          prefix_prob = static_cast<float>(trie_node->GetFrequency()) /
-                  static_cast<float>(trieRoot->GetFrequency());
-          // TODO store and retrieve the least likely extension
-          // Convert to log probability
-          prefix_prob = std::log10(prefix_prob);
+          min_unigram_score = trie_node->GetMinUnigramScore();
         }
       }
       // TODO try two options
       // 1) unigram score added up to language model scare
       // 2) langugage model score of (preceding_words + unigram_word)
-      to_state->score = prefix_prob + to_state->language_model_score;
+      to_state->score = min_unigram_score + to_state->language_model_score;
       to_state->delta_score = to_state->score - from_state.score;
 
     } else {
@@ -168,7 +168,7 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
                             to_state->incomplete_word,
                             to_state->model_state);
       UpdateWithLMScore(to_state, probability);
-      ResetIncompleteWord();
+      ResetIncompleteWord(to_state);
     }
   }
   // ExpandStateEnd is called after decoding has finished. Its purpose is to
@@ -212,14 +212,14 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
   TrieNode<27> *trieRoot;
   Model *model;
 
-  void UpdateWithLMScore(KenLMBeamState *state, float lm_score) {
+  void UpdateWithLMScore(KenLMBeamState *state, float lm_score) const {
     float previous_score = state->score;
     state->language_model_score = lm_score;
     state->score = lm_score;
     state->delta_score = lm_score - previous_score;
   }
 
-  void ResetIncompleteWord(KenLMBeamState *state) {
+  void ResetIncompleteWord(KenLMBeamState *state) const {
     state->incomplete_word.clear();
     state->incomplete_word_trie_node = trieRoot;
   }

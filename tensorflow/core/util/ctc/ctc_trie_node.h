@@ -16,10 +16,12 @@ limitations under the License.
 #ifndef CTC_TRIENODE_H
 #define CTC_TRIENODE_H
 
+#include "lm/model.hh"
 
 #include <functional>
 #include <istream>
 #include <iostream>
+#include <limits>
 
 namespace tensorflow {
 namespace ctc {
@@ -27,7 +29,10 @@ namespace ctc {
 template <int VOCAB_SIZE>
 class TrieNode {
 public:
-  TrieNode() : prefixCount(0), children{nullptr} {}
+  TrieNode() : prefixCount(0),
+                min_score_word(0),
+                min_unigram_score(std::numeric_limits<float>::max()),
+                children{nullptr} {}
 
   ~TrieNode() {
     for (int i = 0; i < VOCAB_SIZE; i++) {
@@ -40,7 +45,7 @@ public:
       os << -1 << std::endl;
       return os;
     }
-    os << obj->prefixCount << std::endl;
+    obj->WriteNode(os);
     for (int i = 0; i < VOCAB_SIZE; i++) {
       // Recursive call
       os << obj->children[i];
@@ -59,7 +64,7 @@ public:
     }
 
     obj = new TrieNode;
-    obj->prefixCount = prefixCount;
+    obj->ReadNode(is, prefixCount);
     for (int i = 0; i < VOCAB_SIZE; i++) {
       // Recursive call
       is >> obj->children[i];
@@ -67,9 +72,14 @@ public:
     return is;
   }
 
-  void Insert(const char* word, std::function<char (char)> translator) {
+  void Insert(const char* word, std::function<char (char)> translator,
+              lm::WordIndex lm_word, float unigram_score) {
     char wordCharacter = *word;
     prefixCount++;
+    if (unigram_score < min_unigram_score) {
+      min_unigram_score = unigram_score;
+      min_score_word = lm_word;
+    }
     if (wordCharacter != '\0') {
       char vocabIndex = translator(wordCharacter);
       TrieNode *child = children[vocabIndex];
@@ -79,20 +89,16 @@ public:
     }
   }
 
-  int GetFrequencyOf(const char* word, std::function<char (char)> translator) {
-    char wordCharacter = *word;
-    if (wordCharacter != '\0') {
-      char vocabIndex = translator(wordCharacter);
-      TrieNode *child = children[vocabIndex];
-      if (child == nullptr)
-        return 0;
-      return child->GetFrequencyOf(word + 1, translator);
-    }
+  int GetFrequency() {
     return prefixCount;
   }
 
-  int GetFrequency() {
-    return prefixCount;
+  lm::WordIndex GetMinScoreWordIndex() {
+    return min_score_word;
+  }
+
+  float GetMinUnigramScore() {
+    return min_unigram_score;
   }
   
   TrieNode *GetChildAt(int vocabIndex) {
@@ -101,7 +107,22 @@ public:
 
 private:
   int prefixCount;
+  lm::WordIndex min_score_word;
+  float min_unigram_score;
   TrieNode *children[VOCAB_SIZE];
+
+  void WriteNode(std::ostream& os) const {
+    os << prefixCount << std::endl;
+    os << min_score_word << std::endl;
+    os << min_unigram_score << std::endl;
+  }
+
+  void ReadNode(std::istream& is, int first_input) {
+    prefixCount = first_input;
+    is >> min_score_word;
+    is >> min_unigram_score;
+  }
+
 };
 
 } // namespace ctc
