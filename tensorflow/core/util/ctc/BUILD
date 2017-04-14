@@ -74,6 +74,7 @@ cc_binary(
         "ctc_trie_node.h",
     ],
     copts = ['-fexceptions'],
+    linkopts = ['-lm'],
     deps = [
         "@kenlm_archive//:kenlm",
     ],

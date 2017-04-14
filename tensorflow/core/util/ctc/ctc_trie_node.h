@@ -85,7 +85,7 @@ public:
       TrieNode *child = children[vocabIndex];
       if (child == nullptr)
         child = children[vocabIndex] = new TrieNode();
-      child->Insert(word + 1, translator);
+      child->Insert(word + 1, translator, lm_word, unigram_score);
     }
   }
 

@@ -14,10 +14,9 @@ limitations under the License.
 ==============================================================================*/
 
 #include "tensorflow/core/util/ctc/ctc_trie_node.h"
-#include "lm/model.h"
+#include "lm/model.hh"
 
-namespace tensorflow {
-namespace ctc {
+using namespace tensorflow::ctc;
 
 typedef lm::ngram::ProbingModel Model;
 
@@ -33,7 +32,7 @@ char CharToVocab(char c) {
 
 lm::WordIndex GetWordIndex(const Model& model, const std::string& word) {
   lm::WordIndex vocab;
-  vocab = model->GetVocabulary().Index(word);
+  vocab = model.GetVocabulary().Index(word);
   return vocab;
 }
 
@@ -41,7 +40,7 @@ float ScoreWord(const Model& model, lm::WordIndex vocab) {
   Model::State in_state = model.NullContextState();
   Model::State out;
   lm::FullScoreReturn full_score_return;
-  full_score_return = model->FullScore(in_state, vocab, out);
+  full_score_return = model.FullScore(in_state, vocab, out);
   return full_score_return.prob;
 }
 
@@ -59,13 +58,11 @@ int main(int argc, char *argv[]) {
 
   std::string word;
   while (std::cin >> word) {
-    lm::WordIndex vocab = GetWordIndex(word);
+    lm::WordIndex vocab = GetWordIndex(model, word);
     float unigram_score = ScoreWord(model, vocab);
     root.Insert(word.c_str(), CharToVocab, vocab, unigram_score);
   }
 
   std::cout << &root;
+  return 0;
 }
-
-}  // end namespace ctc
-}  // end namespace tensorflow
