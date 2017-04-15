@@ -147,10 +147,10 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
       to_state->delta_score = to_state->score - from_state.score;
 
     } else {
-      float probability = ScoreIncompleteWord(from_state.model_state,
+      float lm_score_delta = ScoreIncompleteWord(from_state.model_state,
                             to_state->incomplete_word,
                             to_state->model_state);
-      UpdateWithLMScore(to_state, probability);
+      UpdateWithLMScore(to_state, lm_score_delta);
       ResetIncompleteWord(to_state);
     }
   }
@@ -158,17 +158,19 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
   // allow a final scoring of the beam in its current state, before resorting
   // and retrieving the TopN requested candidates. Called at most once per beam.
   void ExpandStateEnd(KenLMBeamState* state) const {
+    float lm_score_delta = 0.0f;
     Model::State out;
-    lm::FullScoreReturn full_score_return;
     if (state->incomplete_word.size() > 0) {
-      ScoreIncompleteWord(state->model_state, state->incomplete_word, out);
+      lm_score_delta += ScoreIncompleteWord(state->model_state,
+                                            state->incomplete_word,
+                                            out);
       ResetIncompleteWord(state);
       state->model_state = out;
     }
-    full_score_return = model->FullScore(state->model_state,
-                            model->GetVocabulary().EndSentence(),
-                            out);
-    UpdateWithLMScore(state, full_score_return.prob);
+    lm_score_delta += model->FullScore(state->model_state,
+                                      model->GetVocabulary().EndSentence(),
+                                      out).prob;
+    UpdateWithLMScore(state, lm_score_delta);
   }
   // GetStateExpansionScore should be an inexpensive method to retrieve the
   // (cached) expansion score computed within ExpandState. The score is
@@ -195,11 +197,11 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
   TrieNode *trieRoot;
   Model *model;
 
-  void UpdateWithLMScore(KenLMBeamState *state, float lm_score) const {
+  void UpdateWithLMScore(KenLMBeamState *state, float lm_score_delta) const {
     float previous_score = state->score;
-    state->language_model_score = lm_score;
-    state->score = lm_score;
-    state->delta_score = lm_score - previous_score;
+    state->language_model_score += lm_score_delta;
+    state->score = state->language_model_score;
+    state->delta_score = state->language_model_score - previous_score;
   }
 
   void ResetIncompleteWord(KenLMBeamState *state) const {

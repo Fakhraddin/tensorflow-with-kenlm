@@ -17,6 +17,7 @@ limitations under the License.
 #include "tensorflow/core/util/ctc/ctc_beam_entry.h"
 #include "tensorflow/core/util/ctc/ctc_beam_scorer.h"
 #include "tensorflow/core/util/ctc/ctc_vocabulary.h"
+#include "lm/model.hh"
 
 namespace {
 
@@ -50,8 +51,9 @@ const int test_labels_typo[] = {19,19,19,19,28,28,14,28,28,12,12,12,28,14,14,14,
                       11,11,11,11,28,11,11,28,28,27,27,27,28,28,17,28,28,28,
                       28,0,0,28,28,28,8,8,28,28,28,13,13,13,13,28};
 
+const char *kenlm_file_path = "./tensorflow/core/util/ctc/testdata/testing-kenlm.binary";
+
 KenLMBeamScorer *createKenLMBeamScorer() {
-  const char *kenlm_file_path = "./tensorflow/core/util/ctc/testdata/testing-kenlm.binary";
   return new KenLMBeamScorer(kenlm_file_path);
 }
 
@@ -86,6 +88,29 @@ TEST(KenLMBeamSearch, VocabularyFromFile) {
   EXPECT_EQ('b', vocabulary.GetCharacterFromLabel(1));
   EXPECT_EQ(4, vocabulary.GetLabelFromCharacter('e'));
   EXPECT_TRUE(vocabulary.IsBlankLabel(28));
+  EXPECT_TRUE(vocabulary.IsSpaceLabel(27));
+}
+
+TEST(KenLMBeamSearch, KenLMModel) {
+  typedef lm::ngram::ProbingModel Model;
+
+  lm::ngram::Config config;
+  config.load_method = util::POPULATE_OR_READ;
+  Model model(kenlm_file_path, config);
+  auto &vocabulary = model.GetVocabulary();
+
+  Model::State states[2];
+  states[0] = model.BeginSentenceState();
+
+  float score = 0.0f;
+
+  score += model.FullScore(states[0], vocabulary.Index("tomorrow"), states[1]).prob;
+  score += model.FullScore(states[1], vocabulary.Index("it"), states[0]).prob;
+  score += model.FullScore(states[0], vocabulary.Index("will"), states[1]).prob;
+  score += model.FullScore(states[1], vocabulary.Index("rain"), states[0]).prob;
+  score += model.FullScore(states[0], vocabulary.EndSentence(), states[1]).prob;
+
+  EXPECT_NEAR(-4.21812, score, 0.0001);
 }
 
 float ScoreBeam(KenLMBeamScorer *scorer, const int labels[], const int label_count) {
