@@ -78,7 +78,7 @@ cc_binary(
         "ctc_trie_node.h",
         "ctc_vocabulary.h",
     ],
-    copts = ['-fexceptions', '-std=c++11', '-g'],
+    copts = ['-fexceptions', '-std=c++11'],
     linkopts = ['-lm'],
     deps = [
         "@kenlm_archive//:kenlm",
