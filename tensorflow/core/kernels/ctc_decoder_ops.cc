@@ -254,10 +254,10 @@ class CTCBeamSearchDecoderOp : public OpKernel {
     int top_paths;
     OP_REQUIRES_OK(ctx, ctx->GetAttr("top_paths", &top_paths));
     decode_helper_.SetTopPaths(top_paths);
-    std::string kenlm_file_path;
-    OP_REQUIRES_OK(ctx, ctx->GetAttr("kenlm_file_path", &kenlm_file_path));
-    const char *c_kenlm_file_path = kenlm_file_path.c_str();
-    beam_scorer_ = new BeamScorer(c_kenlm_file_path);
+    std::string kenlm_directory_path;
+    OP_REQUIRES_OK(ctx, ctx->GetAttr("kenlm_directory_path", &kenlm_directory_path));
+    const char *c_kenlm_directory_path = kenlm_directory_path.c_str();
+    beam_scorer_ = new BeamScorer(c_kenlm_directory_path);
   }
 
   virtual ~CTCBeamSearchDecoderOp() {

@@ -86,14 +86,15 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
     delete trieRoot;
     delete vocabulary;
   }
-  KenLMBeamScorer(const char *kenlm_file_path) {
+  KenLMBeamScorer(const char *kenlm_directory_path) {
+    std::string directory_path(kenlm_directory_path);
+    const std::string model_path = directory_path + "/kenlm-model.binary";
+    const std::string vocabulary_path = directory_path + "/vocabulary";
+    const std::string trie_path = directory_path + "/trie";
+
     lm::ngram::Config config;
     config.load_method = util::POPULATE_OR_READ;
-    model = new Model(kenlm_file_path, config);
-
-    const std::string trie_path = std::string(kenlm_file_path) + ".trie";
-    const std::string vocabulary_path = std::string(kenlm_file_path)
-                                          + ".vocabulary";
+    model = new Model(model_path.c_str(), config);
 
     vocabulary = new Vocabulary(vocabulary_path.c_str());
 

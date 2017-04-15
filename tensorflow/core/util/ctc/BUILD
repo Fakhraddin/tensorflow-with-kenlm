@@ -101,9 +101,9 @@ tf_cc_tests(
         "//tensorflow/core:test_main",
     ],
     data = [
-        "testdata/testing-kenlm.binary",
-        "testdata/testing-kenlm.binary.vocabulary",
-        "testdata/testing-kenlm.binary.trie",
+        "testdata/kenlm-model.binary",
+        "testdata/vocabulary",
+        "testdata/trie",
     ],
 )
 

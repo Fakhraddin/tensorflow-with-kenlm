@@ -51,10 +51,10 @@ const int test_labels_typo[] = {19,19,19,19,28,28,14,28,28,12,12,12,28,14,14,14,
                       11,11,11,11,28,11,11,28,28,27,27,27,28,28,17,28,28,28,
                       28,0,0,28,28,28,8,8,28,28,28,13,13,13,13,28};
 
-const char *kenlm_file_path = "./tensorflow/core/util/ctc/testdata/testing-kenlm.binary";
+const char *kenlm_directory_path = "./tensorflow/core/util/ctc/testdata";
 
 KenLMBeamScorer *createKenLMBeamScorer() {
-  return new KenLMBeamScorer(kenlm_file_path);
+  return new KenLMBeamScorer(kenlm_directory_path);
 }
 
 TEST(KenLMBeamSearch, Vocabulary) {
@@ -81,7 +81,7 @@ TEST(KenLMBeamSearch, Vocabulary) {
 
 TEST(KenLMBeamSearch, VocabularyFromFile) {
 
-  const char *vocabulary_path = "./tensorflow/core/util/ctc/testdata/testing-kenlm.binary.vocabulary";
+  const char *vocabulary_path = "./tensorflow/core/util/ctc/testdata/vocabulary";
   Vocabulary vocabulary(vocabulary_path);
 
   EXPECT_EQ(28, vocabulary.GetSize());
@@ -94,9 +94,11 @@ TEST(KenLMBeamSearch, VocabularyFromFile) {
 TEST(KenLMBeamSearch, KenLMModel) {
   typedef lm::ngram::ProbingModel Model;
 
+  const char *model_path = "./tensorflow/core/util/ctc/testdata/kenlm-model.binary";
+
   lm::ngram::Config config;
   config.load_method = util::POPULATE_OR_READ;
-  Model model(kenlm_file_path, config);
+  Model model(model_path, config);
   auto &vocabulary = model.GetVocabulary();
 
   Model::State states[2];
