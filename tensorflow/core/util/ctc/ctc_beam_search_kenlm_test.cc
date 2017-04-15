@@ -94,14 +94,20 @@ float ScoreBeam(KenLMBeamScorer *scorer, const int labels[], const int label_cou
 
   int from_label = -1;
   float score = 0.0f;
+  std::wstring incomplete_word;
   for (int i = 0; i < label_count; i++) {
     int to_label = labels[i];
     KenLMBeamState &from_state = states[i % 2];
     KenLMBeamState &to_state = states[(i + 1) % 2];
     
     scorer->ExpandState(from_state, from_label, &to_state, to_label);
-
-    score = scorer->GetStateExpansionScore(to_state, score);
+    float new_score = scorer->GetStateExpansionScore(to_state, score);
+    EXPECT_NEAR(new_score, to_state.score, 0.0001);
+    if (incomplete_word == to_state.incomplete_word) {
+      EXPECT_NEAR(score, new_score, 0.0001);
+    }
+    incomplete_word = to_state.incomplete_word;
+    score = new_score;
     
     // Update from_label for next iteration
     from_label = to_label;
@@ -110,6 +116,8 @@ float ScoreBeam(KenLMBeamScorer *scorer, const int labels[], const int label_cou
   KenLMBeamState &endState = states[label_count % 2];
   scorer->ExpandStateEnd(&endState);
   score += scorer->GetStateEndExpansionScore(endState);
+  EXPECT_NEAR(score, endState.score, 0.0001);
+  EXPECT_NEAR(endState.language_model_score, endState.score, 0.0001);
 
   return score;
 }
