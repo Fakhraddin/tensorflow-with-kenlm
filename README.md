@@ -3,6 +3,46 @@
 </div>
 -----------------
 
+# Tensorflow with KenLM integration
+
+This fork of tensorflow adds [KenLM](http://kheafield.com/professional/edinburgh/estimate_paper.pdf) (a language model) to the `ctc_beam_search_decoder` operation.
+
+```
+tf.nn.ctc_beam_search_decoder(logits,
+                              output_sequence_lengths,
+                              kenlm_directory_path='your/directory/path')
+```
+
+Your specified kenlm_directory_path must contain three files
+```
+kenlm-model.binary
+vocabulary
+trie
+```
+
+See http://kheafield.com/code/kenlm/ to find out how to generate your `kenlm-model.binary`.
+
+The `vocabulary` file contains the mapping from your logit labels to characters,
+the file should contain all allowed characteres in a single line,
+the indexing specifying the respective label id, e.g.
+```
+abcdefghijklmnopqrstuvwxyz '
+```
+
+The `trie` is generated from a text corpus of all words on a character level.
+Given a file `corpus.txt` which must satisfy the following conditions,
+- only contains words with characters specified in `vocabulary`
+- seperated by whitespace or new lines
+
+we can generate `trie` using:
+```
+cd tensorflow-with-kenlm
+bazel build -c opt --config=cuda //tensorflow/core/util/ctc:ctc_generate_trie
+bazel-bin/tensorflow/core/util/ctc/ctc_generate_trie kenlm-model.binary vocabulary < corpus.txt > trie
+```
+
+-----------------
+
 | **`Linux CPU`** | **`Linux GPU`** | **`Mac OS CPU`** | **`Windows CPU`** | **`Android`** |
 |-----------------|---------------------|------------------|-------------------|---------------|
 | [![Build Status](https://ci.tensorflow.org/buildStatus/icon?job=tensorflow-master-cpu)](https://ci.tensorflow.org/job/tensorflow-master-cpu) | [![Build Status](https://ci.tensorflow.org/buildStatus/icon?job=tensorflow-master-linux-gpu)](https://ci.tensorflow.org/job/tensorflow-master-linux-gpu) | [![Build Status](https://ci.tensorflow.org/buildStatus/icon?job=tensorflow-master-mac)](https://ci.tensorflow.org/job/tensorflow-master-mac) | [![Build Status](https://ci.tensorflow.org/buildStatus/icon?job=tensorflow-master-win-cmake-py)](https://ci.tensorflow.org/job/tensorflow-master-win-cmake-py) | [![Build Status](https://ci.tensorflow.org/buildStatus/icon?job=tensorflow-master-android)](https://ci.tensorflow.org/job/tensorflow-master-android) |
