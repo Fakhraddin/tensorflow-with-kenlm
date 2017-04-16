@@ -151,6 +151,10 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
       float lm_score_delta = ScoreIncompleteWord(from_state.model_state,
                             to_state->incomplete_word,
                             to_state->model_state);
+      // Give fixed word bonus
+      if (!IsOOV(to_state->incomplete_word)) {
+        to_state->language_model_score += 2.5f;
+      }
       UpdateWithLMScore(to_state, lm_score_delta);
       ResetIncompleteWord(to_state);
     }
@@ -208,6 +212,13 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
   void ResetIncompleteWord(KenLMBeamState *state) const {
     state->incomplete_word.clear();
     state->incomplete_word_trie_node = trieRoot;
+  }
+
+  bool IsOOV(const std::wstring& word) const {
+    std::string encoded_word;
+    utf8::utf16to8(word.begin(), word.end(), std::back_inserter(encoded_word));
+    auto &vocabulary = model->GetVocabulary();
+    return vocabulary.Index(encoded_word) == vocabulary.NotFound();
   }
 
   float ScoreIncompleteWord(const Model::State& model_state,
