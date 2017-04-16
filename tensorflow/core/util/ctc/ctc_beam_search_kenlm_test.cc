@@ -52,6 +52,8 @@ const int test_labels_typo[] = {19,19,19,19,28,28,14,28,28,12,12,12,28,14,14,14,
                       28,0,0,28,28,28,8,8,28,28,28,13,13,13,13,28};
 
 const char *kenlm_directory_path = "./tensorflow/core/util/ctc/testdata";
+const char *vocabulary_path = "./tensorflow/core/util/ctc/testdata/vocabulary";
+const char *model_path = "./tensorflow/core/util/ctc/testdata/kenlm-model.binary";
 
 KenLMBeamScorer *createKenLMBeamScorer() {
   return new KenLMBeamScorer(kenlm_directory_path);
@@ -81,7 +83,6 @@ TEST(KenLMBeamSearch, Vocabulary) {
 
 TEST(KenLMBeamSearch, VocabularyFromFile) {
 
-  const char *vocabulary_path = "./tensorflow/core/util/ctc/testdata/vocabulary";
   Vocabulary vocabulary(vocabulary_path);
 
   EXPECT_EQ(28, vocabulary.GetSize());
@@ -93,8 +94,6 @@ TEST(KenLMBeamSearch, VocabularyFromFile) {
 
 TEST(KenLMBeamSearch, KenLMModel) {
   typedef lm::ngram::ProbingModel Model;
-
-  const char *model_path = "./tensorflow/core/util/ctc/testdata/kenlm-model.binary";
 
   lm::ngram::Config config;
   config.load_method = util::POPULATE_OR_READ;
@@ -110,6 +109,34 @@ TEST(KenLMBeamSearch, KenLMModel) {
   score += model.FullScore(states[1], vocabulary.Index("it"), states[0]).prob;
   score += model.FullScore(states[0], vocabulary.Index("will"), states[1]).prob;
   score += model.FullScore(states[1], vocabulary.Index("rain"), states[0]).prob;
+  score += model.FullScore(states[0], vocabulary.EndSentence(), states[1]).prob;
+
+  EXPECT_NEAR(-4.21812, score, 0.0001);
+}
+
+std::string utf16to8(const std::wstring &word_utf16) {
+    std::string encoded_word;
+    utf8::utf16to8(word_utf16.begin(), word_utf16.end(), std::back_inserter(encoded_word));
+    return encoded_word;
+}
+
+TEST(KenLMBeamSearch, KenLMModelWithUtf16) {
+  typedef lm::ngram::ProbingModel Model;
+
+  lm::ngram::Config config;
+  config.load_method = util::POPULATE_OR_READ;
+  Model model(model_path, config);
+  auto &vocabulary = model.GetVocabulary();
+
+  Model::State states[2];
+  states[0] = model.BeginSentenceState();
+
+  float score = 0.0f;
+
+  score += model.FullScore(states[0], vocabulary.Index(utf16to8(L"tomorrow")), states[1]).prob;
+  score += model.FullScore(states[1], vocabulary.Index(utf16to8(L"it")), states[0]).prob;
+  score += model.FullScore(states[0], vocabulary.Index(utf16to8(L"will")), states[1]).prob;
+  score += model.FullScore(states[1], vocabulary.Index(utf16to8(L"rain")), states[0]).prob;
   score += model.FullScore(states[0], vocabulary.EndSentence(), states[1]).prob;
 
   EXPECT_NEAR(-4.21812, score, 0.0001);
