@@ -120,11 +120,6 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
                            KenLMBeamState* to_state, int to_label) const {
     CopyState(from_state, to_state);
 
-    if (from_label == to_label || vocabulary->IsBlankLabel(to_label)) {
-      to_state->delta_score = 0.0f;
-      return;
-    }
-
     if (!vocabulary->IsSpaceLabel(to_label)) {
       to_state->incomplete_word += vocabulary->GetCharacterFromLabel(to_label);
       TrieNode *trie_node = from_state.incomplete_word_trie_node;
