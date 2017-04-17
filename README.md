@@ -41,6 +41,16 @@ bazel build -c opt --config=cuda //tensorflow/core/util/ctc:ctc_generate_trie
 bazel-bin/tensorflow/core/util/ctc/ctc_generate_trie kenlm-model.binary vocabulary < corpus.txt > trie
 ```
 
+## How to compile tensorflow
+
+See [Download and Setup](tensorflow/g3doc/get_started/os_setup.md) for more detailed instructions.
+```
+./configure
+bazel build -c opt //tensorflow/tools/pip_package:build_pip_package
+bazel-bin/tensorflow/tools/pip_package/build_pip_package /tmp/tensorflow_pkg
+pip install /tmp/tensorflow_pkg/tensorflow-*.whl --upgrade
+```
+
 -----------------
 
 | **`Linux CPU`** | **`Linux GPU`** | **`Mac OS CPU`** | **`Windows CPU`** | **`Android`** |
