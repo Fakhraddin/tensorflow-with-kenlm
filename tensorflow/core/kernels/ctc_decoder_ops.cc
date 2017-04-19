@@ -275,6 +275,21 @@ class CTCBeamSearchDecoderOp : public OpKernel {
                             ctx, &inputs, &seq_len, &log_prob, &decoded_indices,
                             &decoded_values, &decoded_shape));
 
+    const Tensor& lm_weight = ctx->input(2);
+    OP_REQUIRES(ctx, TensorShapeUtils::IsScalar(lm_weight.shape()),
+                errors::InvalidArgument(
+                    "kenlm_weight must be a scalar, but received tensor of shape: ",
+                    lm_weight.shape().DebugString()));
+
+    const Tensor& word_count_weight = ctx->input(3);
+    OP_REQUIRES(ctx, TensorShapeUtils::IsScalar(word_count_weight.shape()),
+                errors::InvalidArgument(
+                    "word_count_weight must be a scalar, but received tensor of shape: ",
+                    word_count_weight.shape().DebugString()));
+
+    beam_scorer_->SetLMWeight(lm_weight.flat<float>()(0));
+    beam_scorer_->SetWordCountWeight(word_count_weight.flat<float>()(0));
+
     auto inputs_t = inputs->tensor<float, 3>();
     auto seq_len_t = seq_len->vec<int32>();
     auto log_prob_t = log_prob->matrix<float>();

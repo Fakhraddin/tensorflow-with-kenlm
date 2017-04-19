@@ -86,7 +86,10 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
     delete trieRoot;
     delete vocabulary;
   }
-  KenLMBeamScorer(const char *kenlm_directory_path) {
+  KenLMBeamScorer(const char *kenlm_directory_path)
+                    : lm_weight(1.0f),
+                      word_count_weight(0.0f) {
+
     std::string directory_path(kenlm_directory_path);
     const std::string model_path = directory_path + "/kenlm-model.binary";
     const std::string vocabulary_path = directory_path + "/vocabulary";
@@ -147,9 +150,7 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
                             to_state->incomplete_word,
                             to_state->model_state);
       // Give fixed word bonus
-      if (!IsOOV(to_state->incomplete_word)) {
-        to_state->language_model_score += 2.5f;
-      }
+      to_state->language_model_score += word_count_weight;
       UpdateWithLMScore(to_state, lm_score_delta);
       ResetIncompleteWord(to_state);
     }
@@ -181,7 +182,7 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
   // there's no state expansion logic, the expansion score is zero.
   float GetStateExpansionScore(const KenLMBeamState& state,
                                        float previous_score) const {
-    return state.delta_score + previous_score;
+    return lm_weight * state.delta_score + previous_score;
   }
   // GetStateEndExpansionScore should be an inexpensive method to retrieve the
   // (cached) expansion score computed within ExpandStateEnd. The score is
@@ -189,13 +190,23 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
   //
   // The score returned should be a log-probability.
   float GetStateEndExpansionScore(const KenLMBeamState& state) const {
-    return state.delta_score;
+    return lm_weight * state.delta_score;
+  }
+
+  void SetLMWeight(float lm_weight) {
+    this->lm_weight = lm_weight;
+  }
+
+  void SetWordCountWeight(float word_count_weight) {
+    this->word_count_weight = word_count_weight; 
   }
 
  private:
   Vocabulary *vocabulary;
   TrieNode *trieRoot;
   Model *model;
+  float lm_weight;
+  float word_count_weight;
 
   void UpdateWithLMScore(KenLMBeamState *state, float lm_score_delta) const {
     float previous_score = state->score;
