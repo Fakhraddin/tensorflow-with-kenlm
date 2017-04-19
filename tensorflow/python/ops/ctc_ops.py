@@ -215,7 +215,8 @@ def ctc_greedy_decoder(inputs, sequence_length, merge_repeated=True):
 
 def ctc_beam_search_decoder(inputs, sequence_length, kenlm_directory_path,
                             kenlm_weight=1.0, word_count_weight=0.0,
-                            beam_width=100, top_paths=1, merge_repeated=True):
+                            valid_word_count_weight=0.0, beam_width=100,
+                            top_paths=1, merge_repeated=True):
   """Performs beam search decoding on the logits given in input.
 
   **Note** The `ctc_greedy_decoder` is a special case of the
@@ -238,6 +239,7 @@ def ctc_beam_search_decoder(inputs, sequence_length, kenlm_directory_path,
     kenlm_directory_path: String. Directory path to KenLM language model files `kenlm-model.binary`, `vocabulary`, `trie`.
     kenlm_weight: Float tensor. A scalar that weights the significance of the language model.
     word_count_weight: Float tensor. A scalar that weights the significance of the transcription word count.
+    valid_word_count_weight: Float tensor. A scalar that weights the significance of the valid transcription word count.
     beam_width: An int scalar >= 0 (beam search beam width).
     top_paths: An int scalar >= 0, <= beam_width (controls output size).
     merge_repeated: Boolean.  Default: True.
@@ -259,6 +261,7 @@ def ctc_beam_search_decoder(inputs, sequence_length, kenlm_directory_path,
   decoded_ixs, decoded_vals, decoded_shapes, log_probabilities = (
       gen_ctc_ops._ctc_beam_search_decoder(
           inputs, sequence_length, kenlm_weight, word_count_weight,
+          valid_word_count_weight,
           kenlm_directory_path, beam_width=beam_width, top_paths=top_paths,
           merge_repeated=merge_repeated))
 

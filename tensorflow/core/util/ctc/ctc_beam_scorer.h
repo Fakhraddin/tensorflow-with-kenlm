@@ -150,6 +150,9 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
                             to_state->incomplete_word,
                             to_state->model_state);
       // Give fixed word bonus
+      if (!IsOOV(to_state->incomplete_word)) {
+        to_state->language_model_score += valid_word_count_weight;
+      }
       to_state->language_model_score += word_count_weight;
       UpdateWithLMScore(to_state, lm_score_delta);
       ResetIncompleteWord(to_state);
@@ -201,12 +204,17 @@ class KenLMBeamScorer : public BaseBeamScorer<KenLMBeamState> {
     this->word_count_weight = word_count_weight; 
   }
 
+  void SetValidWordCountWeight(float valid_word_count_weight) {
+    this->valid_word_count_weight = valid_word_count_weight;
+  }
+
  private:
   Vocabulary *vocabulary;
   TrieNode *trieRoot;
   Model *model;
   float lm_weight;
   float word_count_weight;
+  float valid_word_count_weight;
 
   void UpdateWithLMScore(KenLMBeamState *state, float lm_score_delta) const {
     float previous_score = state->score;

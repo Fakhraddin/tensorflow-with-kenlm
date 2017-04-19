@@ -138,6 +138,7 @@ REGISTER_OP("CTCBeamSearchDecoder")
     .Input("sequence_length: int32")
     .Input("kenlm_weight: float")
     .Input("word_count_weight: float")
+    .Input("valid_word_count_weight: float")
     .Attr("kenlm_directory_path: string")
     .Attr("beam_width: int >= 1")
     .Attr("top_paths: int >= 1")
@@ -189,6 +190,7 @@ inputs: 3-D, shape: `(max_time x batch_size x num_classes)`, the logits.
 sequence_length: A vector containing sequence lengths, size `(batch)`.
 kenlm_weight: A scalar that weights the significance of the language model.
 word_count_weight: A scalar that weights the significance of the transcription word count.
+valid_word_count_weight: A scalar that weights the significance of the valid transcription word count.
 kenlm_directory_path: String. Directory path to KenLM language model files `kenlm-model.binary`, `vocabulary`, `trie`.
 beam_width: A scalar >= 0 (beam search beam width).
 top_paths: A scalar >= 0, <= beam_width (controls output size).
