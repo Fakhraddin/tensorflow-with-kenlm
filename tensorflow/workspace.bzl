@@ -97,7 +97,7 @@ def tf_workspace(path_prefix = "", tf_repo_name = ""):
       urls = [
           "http://kheafield.com/code/kenlm.tar.gz",
       ],
-      sha256 = "6902f8c297c1d7ae26df16b8876f1d76442a60fc25a598afc4e4f068735e9623",
+      sha256 = "c4c9f587048470c9a6a592914f0609a71fbb959f0a4cad371e8c355ce81f7c6b",
       strip_prefix = "kenlm",
       build_file = str(Label("//third_party:kenlm.BUILD")),
   )
